@@ -801,7 +801,10 @@
       // See GOOGLE_SHEETS_SETUP.md for setup instructions
       // ============================================
       const GOOGLE_SHEETS_ENDPOINT = "https://script.google.com/macros/s/AKfycbzGC9Ok0vKvKRErETdJVIT50HZCy0YwQa3Ap7UhF2J2-pvP-_4CCGmsAuzvyklVP6XF/exec";
-      const PUBLIC_SHEET_STATS_URL = "https://docs.google.com/spreadsheets/d/1tIZBISgLa6UTsPCMlMwMeP5Lc5s7U5EIIEunN5zr_3c/gviz/tq?tqx=out:json&sheet=Sheet1";
+      const SHEET_ID = "1tIZBISgLa6UTsPCMlMwMeP5Lc5s7U5EIIEunN5zr_3c";
+      const SHEET_NAME = "Sheet1";
+      const SHEETS_API_KEY = "AIzaSyDBihcX3cEH0aww5WvFjabO5gNTixrc5CM";
+      const SHEETS_API_URL = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}!A:G?key=${SHEETS_API_KEY}`;
 
       // Helper function to encode paths with spaces for URLs
       function encodePath(path) {
@@ -937,9 +940,13 @@
         });
       }
 
-      function parseSheetData(table) {
-        const headers = table.cols.map(col => col.label);
-        const dataRows = table.rows.slice(1); // Skip header row created by query
+      function parseSheetValues(values) {
+        if (!values || values.length === 0) {
+          return { categories: {}, totalVotes: 0 };
+        }
+
+        const headers = values[0];
+        const dataRows = values.slice(1);
 
         const categoryMap = {
           leader: 'Best Student Leader KWUSO 24/25',
@@ -960,13 +967,12 @@
         let totalVotes = 0;
 
         dataRows.forEach(row => {
-          if (!row || !row.c) return;
+          if (!row || row.length === 0) return;
 
           const record = {};
-          row.c.forEach((cell, index) => {
-            const header = headers[index];
+          headers.forEach((header, index) => {
             if (!header) return;
-            record[header] = cell && cell.v ? cell.v.toString().trim() : '';
+            record[header] = row[index] ? row[index].toString().trim() : '';
           });
 
           let hasVote = false;
@@ -993,7 +999,7 @@
         }
 
         try {
-          const response = await fetch(PUBLIC_SHEET_STATS_URL, {
+          const response = await fetch(SHEETS_API_URL, {
             method: "GET",
             mode: "cors",
             cache: "no-store"
@@ -1003,15 +1009,12 @@
             throw new Error(`Failed to fetch vote counts (${response.status})`);
           }
 
-          const rawText = await response.text();
-          const jsonText = rawText.replace(/^[^{]+/, "").replace(/;$/, "");
-          const payload = JSON.parse(jsonText);
-
-          if (!payload.table || !payload.table.rows) {
+          const payload = await response.json();
+          if (!payload.values) {
             throw new Error("Invalid data returned from sheet");
           }
 
-          const { categories, totalVotes } = parseSheetData(payload.table);
+          const { categories, totalVotes } = parseSheetValues(payload.values);
           voteCountData = {
             categories,
             totalVotes,

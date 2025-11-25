@@ -943,7 +943,7 @@
         }
 
         try {
-          const response = await fetch(`${GOOGLE_SHEETS_ENDPOINT}?action=stats`, {
+          const response = await fetch(`${GOOGLE_SHEETS_ENDPOINT}?action=stats&format=json`, {
             method: "GET",
             headers: {
               "Accept": "application/json"
